@@ -1,0 +1,53 @@
+name: Build MissedCallBot APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-android-apk:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Ensure Gradle Wrapper exists
+        run: |
+          if [ ! -f "./gradlew" ]; then
+            echo "gradlew not found, installing gradle wrapper..."
+            sudo apt-get update -y
+            sudo apt-get install -y gradle
+            gradle wrapper --gradle-version 8.4 --distribution-type all
+          fi
+          chmod +x gradlew
+
+      - name: Clean previous build artifacts
+        run: ./gradlew clean
+
+      - name: Build Debug and Release APKs
+        run: ./gradlew assembleDebug assembleRelease --stacktrace
+
+      - name: Collect APK files into dist folder
+        run: |
+          mkdir -p dist
+          find app/build/outputs/apk -name "*.apk" -exec cp {} dist/ \;
+          ls -lh dist/
+
+      - name: Upload Debug & Release APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: MissedCallBot-APKs
+          path: dist/*.apk
+          if-no-files-found: error
